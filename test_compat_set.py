@@ -129,3 +129,15 @@ def test_update_order():
     assert list(val) == [1, 9, 5, 6, 7]
     val.update([8])
     assert list(val) == [1, 5, 6, 7, 8, 9]
+
+
+def test_difference_order():
+    val = CompatSet([5, 6, 8, 9, 10, 11, 12]).difference([])
+    assert list(val) == [5, 6, 8, 9, 10, 11, 12]
+    val.update([16])
+    assert list(val) == [16, 5, 6, 8, 9, 10, 11, 12]
+
+    val = CompatSet([5, 6, 8, 9, 10, 11, 12])
+    assert list(val) == [5, 6, 8, 9, 10, 11, 12]
+    val.update([16])
+    assert list(val) == [5, 6, 8, 9, 10, 11, 12, 16]

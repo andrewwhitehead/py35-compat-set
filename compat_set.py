@@ -66,9 +66,7 @@ class CompatSet:
 
     def copy(self) -> "CompatSet":
         """Return a shallow copy of the set."""
-        res = CompatSet()
-        res._inner.copy_from(self._inner)
-        return res
+        return CompatSet._from_inner(self._inner.copy())
 
     def difference(self, *others) -> "CompatSet":
         """Return a new set with elements in only this set."""
@@ -227,13 +225,8 @@ class _CompatSetInner:
 
     def copy(self) -> "_CompatSetInner":
         res = _CompatSetInner()
-        res.copy_from(self)
+        res.merge(self)
         return res
-
-    def copy_from(self, other: "_CompatSetInner"):
-        for entry in other._table:
-            if entry is not None and entry is not REMOVED:
-                self.add_entry(entry)
 
     def contains_entry(self, entry: _Entry):
         index = self.look_entry(entry)
@@ -241,21 +234,30 @@ class _CompatSetInner:
         return found is not None and found is not REMOVED
 
     def difference(self, other: Iterable) -> "_CompatSetInner":
+        if isinstance(other, (CompatSet, set)) and (self._used >> 2) <= len(other):
+            res = _CompatSetInner()
+            pos = 0
+            if isinstance(other, CompatSet):
+                inner = other._inner
+                while True:
+                    (pos, entry) = self.next(pos)
+                    if entry is None:
+                        break
+                    if not inner.contains_entry(entry):
+                        res.add_entry(entry)
+            else:
+                while True:
+                    (pos, entry) = self.next(pos)
+                    if entry is None:
+                        break
+                    if entry.elem not in other:
+                        res.add_entry(entry)
+            return res
+
         # If len(self) much more than len(other), it's more efficient to
         # simply copy and then iterate other looking for common elements
-        if isinstance(other, CompatSet) and (self._used >> 2) > len(other):
-            res = self.copy()
-            return res.difference_update(other)
-
-        res = _CompatSetInner()
-        pos = 0
-        while True:
-            (pos, entry) = self.next(pos)
-            if entry is None:
-                break
-            if entry.elem not in other:
-                res.add_entry(entry)
-        return res
+        res = self.copy()
+        return res.difference_update(other)
 
     def difference_update(self, other: Iterable) -> "_CompatSetInner":
         if isinstance(other, CompatSet) and other._inner is self:
@@ -375,7 +377,7 @@ class _CompatSetInner:
             i = (i * 5 + 1 + perturb) & mask
 
     def merge(self, other: "_CompatSetInner"):
-        if other is self or not len(other):
+        if other is self or not other._used:
             return
 
         # Do one big resize at the start, rather than incrementally
@@ -389,6 +391,7 @@ class _CompatSetInner:
             for entry in other._table:
                 if entry is not None and entry is not REMOVED:
                     self.insert_entry_clean(entry)
+            self._used = other._used
             return
 
         # We can't assure there are no duplicates, so do normal insertions
