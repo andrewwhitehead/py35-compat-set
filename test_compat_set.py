@@ -2,31 +2,36 @@
 from compat_set import CompatSet
 
 
-def test_empty_contains():
+def test_empty_set():
     val = CompatSet()
+    assert len(val) == 0
     assert 99 not in val
     assert None not in val
     assert "" not in val
     assert "1" not in val
 
+    assert val == CompatSet()
+    assert val != CompatSet([1])
+    assert val == set()
+    assert val != {1}
+    assert val != dict()
 
-def test_new_contains():
+
+def test_simple_set():
     val = CompatSet([1, 2, 3])
+    assert len(val) == 3
+
     assert 2 in val
     assert 99 not in val
     assert None not in val
     assert "" not in val
     assert "1" not in val
 
-
-def test_empty_eq():
-    val = CompatSet()
-    assert val == CompatSet()
-    assert val != CompatSet([1])
-
-
-def test_new_eq():
-    assert CompatSet([1, 2]) == CompatSet([2, 1])
+    assert val == CompatSet([2, 1, 3])
+    assert val == {1, 2, 3}
+    assert val != {1}
+    assert val != set()
+    assert val != dict()
 
 
 def test_difference():
@@ -34,11 +39,15 @@ def test_difference():
     dif = val.difference([2, 3])
     assert val == CompatSet([1, 2])
     assert dif == CompatSet([1])
+
     assert 1 in dif
     assert 2 not in dif
-    assert val - [2, 3] == dif
-    val -= [2, 3]
+
+    assert CompatSet([1, 2]) - {2, 3} == dif
+    val -= {2, 3}
     assert val == dif
+    assert CompatSet([1, 2]) - set() == {1, 2}
+    assert CompatSet([1, 2]) - {1} == {2}
 
 
 def test_intersection():
@@ -46,13 +55,56 @@ def test_intersection():
     dif = val.intersection([2, 3])
     assert val == CompatSet([1, 2])
     assert dif == CompatSet([2])
+
     assert 2 in dif
     assert 1 not in dif
 
-    assert CompatSet([1, 2]) & [2, 3] == CompatSet([2])
+    assert CompatSet([1, 2]) & {2, 3} == dif
     val = CompatSet([1, 2])
-    val &= [2, 3]
-    assert val == CompatSet([2])
+    val &= {2, 3}
+    assert val == dif
+
+
+def test_isdisjoint():
+    val = CompatSet([1, 2])
+    assert val.isdisjoint(set())
+    assert val.isdisjoint({3})
+    assert not val.isdisjoint({2, 3})
+
+
+def test_issubset():
+    val = CompatSet([1, 2])
+    assert val.issubset({1, 2, 3})
+    assert val.issubset({1, 2})
+    assert not val.issubset({1})
+    assert not val.issubset(set())
+    assert CompatSet().issubset({1})
+
+
+def test_issuperset():
+    val = CompatSet([1, 2])
+    assert val.issuperset(set())
+    assert val.issuperset({1})
+    assert val.issuperset({1, 2})
+    assert not val.issuperset({1, 2, 3})
+    assert CompatSet().issuperset(set())
+    assert not CompatSet().issuperset({1})
+
+
+def test_symmetric_difference():
+    val = CompatSet([1, 2])
+    dif = val.symmetric_difference([2, 3])
+    assert val == CompatSet([1, 2])
+    assert dif == CompatSet([1, 3])
+
+    assert 1 in dif
+    assert 2 not in dif
+
+    assert CompatSet([1, 2]) ^ {2, 3} == dif
+    val ^= {2, 3}
+    assert val == dif
+    assert CompatSet([1, 2]) ^ set() == {1, 2}
+    assert CompatSet([1, 2]) ^ {1} == {2}
 
 
 def test_update():
@@ -64,10 +116,10 @@ def test_update():
     assert 2 in val
     assert 99 not in val
 
-    assert CompatSet([1, 2]) | [3] == CompatSet([1, 2, 3])
+    assert CompatSet([1, 2]) | {3} == {1, 2, 3}
     val = CompatSet([1, 2])
-    val |= [3]
-    assert val == CompatSet([1, 2, 3])
+    val |= {3}
+    assert val == {1, 2, 3}
 
 
 def test_update_order():

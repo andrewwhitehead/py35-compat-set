@@ -7,7 +7,7 @@ https://github.com/python/cpython/blob/v3.5.10/Objects/setobject.c
 
 from collections import namedtuple
 from io import StringIO
-from typing import Any, Iterable, List, Optional, Tuple
+from typing import AbstractSet, Any, Iterable, List, Optional, Tuple
 
 
 class _Entry(namedtuple("_Entry", ("elem", "hash"))):
@@ -37,7 +37,7 @@ class CompatSet:
 
     def capacity(self) -> int:
         """Get the current allocated capacity of the set."""
-        return self._inner._mask
+        return self._inner._mask + 1
 
     def discard(self, elem):
         """Remove element elem from the set if it is present."""
@@ -82,9 +82,12 @@ class CompatSet:
             inner = self._inner.copy()
         return CompatSet._from_inner(inner)
 
-    def symmetric_difference(other) -> "CompatSet":
+    def symmetric_difference(self, other: AbstractSet) -> "CompatSet":
         """Return a new set with elements in either set but not both."""
-        # TODO
+        inner = _CompatSetInner()
+        inner.update(other)
+        inner = inner.symmetric_difference_update(self)
+        return CompatSet._from_inner(inner)
 
     def intersection(self, *others) -> "CompatSet":
         """Return a new set with elements common to the set and all others."""
@@ -103,17 +106,19 @@ class CompatSet:
         for other in others:
             self._inner.update(other)
 
-    def isdisjoint(self, other) -> bool:
+    def isdisjoint(self, other: AbstractSet) -> bool:
         """Determine if there is no intersection between two sets."""
-        # TODO
+        if len(self) > len(other):
+            (other, self) = (self, other)
+        return all(elem not in self for elem in other)
 
-    def issubset(self, other) -> bool:
+    def issubset(self, other: AbstractSet) -> bool:
         """Test whether every element in the set is in other."""
-        # TODO
+        return all((elem in other) for elem in self)
 
-    def issuperset(self, other) -> bool:
+    def issuperset(self, other: AbstractSet) -> bool:
         """Test whether every element in other is in the set."""
-        # TODO
+        return all((elem in self) for elem in other)
 
     def union(self, *others) -> "CompatSet":
         """Return a new set with elements from the set and all others."""
@@ -134,7 +139,8 @@ class CompatSet:
         """Compare two sets."""
         if isinstance(other, CompatSet):
             return other._inner == self._inner
-        # TODO: allow comparison to a normal set
+        if isinstance(other, set):
+            return len(other) == len(self) and all((elem in other) for elem in self)
         return False
 
     def __len__(self) -> int:
@@ -151,7 +157,7 @@ class CompatSet:
 
     def __iand__(self, other: Iterable) -> "CompatSet":
         """Make this set an intersection with the other set."""
-        self._intersection_update(other)
+        self._inner = self._inner.intersection(other)
         return self
 
     def __or__(self, other: Iterable) -> "CompatSet":
@@ -172,13 +178,14 @@ class CompatSet:
         self._inner = self._inner.difference_update(other)
         return self
 
-    def __xor__(self, other: Iterable):
+    def __xor__(self, other: AbstractSet) -> "CompatSet":
         """Return a new set with elements in either set but not both."""
-        # TODO
+        return self.symmetric_difference(other)
 
-    def __ixor__(self, other: Iterable):
+    def __ixor__(self, other: AbstractSet) -> "CompatSet":
         """Update this set with the symmetric intersection."""
-        # TODO
+        self._inner = self._inner.symmetric_difference_update(other)
+        return self
 
     def __repr__(self) -> str:
         """Get the set representation."""
@@ -198,9 +205,6 @@ class CompatSet:
         slf = cls.__new__(cls)
         slf._inner = inner
         return slf
-
-    def _intersection_update(self, other: Iterable):
-        self._inner = self._inner.intersection(other)
 
 
 class _CompatSetInner:
@@ -264,7 +268,9 @@ class _CompatSetInner:
         return self
 
     def discard(self, elem) -> bool:
-        entry = _Entry.from_elem(elem)
+        return self.discard_entry(_Entry.from_elem(elem))
+
+    def discard_entry(self, entry: _Entry) -> bool:
         index = self.look_entry(entry)
         found = self._table[index]
         if found is not None and found is not REMOVED:
@@ -436,6 +442,15 @@ class _CompatSetInner:
         for entry in old_table:
             if entry is not None and entry is not REMOVED:
                 self.insert_entry_clean(entry)
+
+    def symmetric_difference_update(self, other: Iterable) -> "_CompatSetInner":
+        if isinstance(other, CompatSet) and other._inner is self:
+            return _CompatSetInner()
+        for elem in other:
+            entry = _Entry.from_elem(elem)
+            if not self.discard_entry(entry):
+                self.add_entry(entry)
+        return self
 
     def update(self, other: Iterable):
         """Update the set from an iterator of elements."""
