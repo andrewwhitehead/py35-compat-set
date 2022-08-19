@@ -328,12 +328,12 @@ class _CompatSetInner:
             if other._inner is self:
                 res.update(self)
             else:
-                other = other._inner
-                if other._used > self._used:
+                inner = other._inner
+                if inner._used > self._used:
                     (self, other) = (other, self)
                 pos = 0
                 while True:
-                    (pos, entry) = other.next(pos)
+                    (pos, entry) = inner.next(pos)
                     if entry is None:
                         break
                     if self.contains_entry(entry):
@@ -385,6 +385,14 @@ class _CompatSetInner:
         # (or few) overlapping keys.
         if (self._fill + other._used) * 3 >= (self._mask + 1) * 2:
             self.resize((self._used + other._used) * 2)
+
+        # If our table is empty, and both tables have the same size, and
+        # there are no removed entries, then just copy the entries.
+        if self._fill == 0 and self._mask == other._mask and other._fill == other._used:
+            self._table = other._table.copy()
+            self._fill = other._fill
+            self._used = other._used
+            return
 
         # If our table is empty, we can use insert_entry_clean()
         if self._fill == 0:
