@@ -313,7 +313,7 @@ class _CompatSetInner:
                 return
 
             if i + LINEAR_PROBES <= mask:
-                for j in range(i, i + LINEAR_PROBES):
+                for j in range(i + 1, i + LINEAR_PROBES + 1):
                     if table[j] is None:
                         table[j] = entry
                         return
@@ -350,7 +350,7 @@ class _CompatSetInner:
         # The set must have at least one empty entry for this to terminate
         assert self._fill <= self._mask
 
-        freeentry = None
+        free_idx = None
         mask = self._mask
         table = self._table
         i = entry.hash & mask
@@ -358,18 +358,18 @@ class _CompatSetInner:
 
         while True:
             if table[i] is None:
-                return i if freeentry is None else i
-            elif table[i] is REMOVED and freeentry is None:
-                freeentry = i
+                return i if free_idx is None else i
+            elif table[i] is REMOVED and free_idx is None:
+                free_idx = i
             elif table[i] == entry:
                 return i
 
             if i + LINEAR_PROBES <= mask:
-                for j in range(i, i + LINEAR_PROBES):
+                for j in range(i + 1, i + LINEAR_PROBES + 1):
                     if table[j] is None:
-                        return j if freeentry is None else j
-                    elif table[j] is REMOVED and not freeentry:
-                        freeentry = j
+                        return j if free_idx is None else j
+                    elif table[j] is REMOVED and free_idx is None:
+                        free_idx = j
                     elif table[j] == entry:
                         return j
 
