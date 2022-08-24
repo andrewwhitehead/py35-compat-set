@@ -1,7 +1,8 @@
 # flake8: noqa
+import os
 import sys
 
-if sys.version_info[:2] < (3, 6):
+if sys.version_info[:2] < (3, 6) and os.getenv("TEST_NATIVE"):
     CompatSet = set
 else:
     from compat_set import CompatSet

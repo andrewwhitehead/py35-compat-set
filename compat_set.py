@@ -7,7 +7,7 @@ https://github.com/python/cpython/blob/v3.5.10/Objects/setobject.c
 
 from collections import namedtuple
 from io import StringIO
-from typing import AbstractSet, Any, Iterable, List, Optional, Tuple
+from typing import AbstractSet, Any, Iterable, Optional, Tuple
 
 
 class _Entry(namedtuple("_Entry", ("elem", "hash"))):
@@ -210,7 +210,7 @@ class _CompatSetInner:
         self._fill = 0
         self._mask = MIN_SIZE - 1
         self._search = 0
-        self._table: List[Optional[_Entry]] = [None] * MIN_SIZE
+        self._table = [None] * MIN_SIZE
         self._used = 0
 
     def add(self, elem):
@@ -218,7 +218,7 @@ class _CompatSetInner:
 
     def add_entry(self, entry: _Entry):
         if self.insert_entry(entry) and self._fill * 3 >= (self._mask + 1) * 2:
-            self.resize(self._used * 2 if self._used > 50_000 else self._used * 4)
+            self.grow()
 
     def contains(self, elem) -> bool:
         return self.contains_entry(_Entry.from_elem(elem))
@@ -266,7 +266,7 @@ class _CompatSetInner:
             self.discard(elem)
         # If more than 1/5 are removed, then resize them away
         if (self._fill - self._used) * 5 >= self._mask:
-            self.resize(self._used * 2 if self._used > 50_000 else self._used * 4)
+            self.grow()
         return self
 
     def discard(self, elem) -> bool:
@@ -280,6 +280,13 @@ class _CompatSetInner:
             self._used -= 1
             return True
         return False
+
+    def grow(self):
+        if self._used > 50000:
+            sz = self._used * 2
+        else:
+            sz = self._used * 4
+        self.resize(sz)
 
     def insert_entry(self, entry: _Entry) -> bool:
         index = self.look_entry(entry)
